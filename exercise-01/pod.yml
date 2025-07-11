@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "nginx"
+  namespace: exercise-01
+  labels:
+    app: "nginx"
+    app.kubernetes.io/name: "nginx"
+    app.kubernetes.io/part-of: "exercise-01"
+    app.kubernetes.io/component: "frontend"
+  annotations:
+    kubernetes-learning.io/developer-login: "andrey.stryukov"
+    kubernetes-learning.io/exercise: "01"
+spec:
+  containers:
+    - name: nginx
+      image: "nginx:1.25-alpine"
+      resources:
+        limits:
+          cpu: 200m
+          memory: 500Mi
+        requests:
+          cpu: 100m
+          memory: 200Mi
+          ephemeral-storage: "1Gi"
+      ports:
+        - containerPort: 80
+          name: http
+  automountServiceAccountToken: false
+  restartPolicy: Always
