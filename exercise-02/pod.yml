@@ -2,15 +2,15 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: "nginx"
-  namespace: exercise-01
+  namespace: exercise-02
   labels:
     app: "nginx"
     app.kubernetes.io/name: "nginx"
-    app.kubernetes.io/part-of: "exercise-01"
+    app.kubernetes.io/part-of: "exercise-02"
     app.kubernetes.io/component: "frontend"
   annotations:
     kubernetes-learning.io/developer-login: "andrey.stryukov"
-    kubernetes-learning.io/exercise: "01"
+    kubernetes-learning.io/exercise: "02"
 spec:
   containers:
     - name: nginx
@@ -30,19 +30,36 @@ spec:
       readinessProbe:
         failureThreshold: 3
         httpGet:
-          path: /
+          path: /health
           port: 80
-        periodSeconds: 10
+        periodSeconds: 5
         successThreshold: 1
         timeoutSeconds: 1
       livenessProbe:
         failureThreshold: 3
-        httpGet:
-          path: /
+        tcpSocket:
           port: 80
-        periodSeconds: 10
+        periodSeconds: 5
         successThreshold: 1
         timeoutSeconds: 1
         initialDelaySeconds: 10
+      volumeMounts:
+        - name: nginx-configs
+          mountPath: "/etc/nginx/conf.d"
+          readOnly: true
   automountServiceAccountToken: false
   restartPolicy: Always
+  volumes:
+    - name: nginx-configs
+      projected:
+        sources:
+          - configMap:
+              name: nginx-default
+              items:
+                - key: default.conf
+                  path: default.conf
+          - secret:
+              name: nginx-creds
+              items:
+                - key: .htpasswd
+                  path: .htpasswd
