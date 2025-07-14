@@ -2,8 +2,6 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: exercise-02
-  labels:
-    app.kubernetes.io/name: exercise-02
   annotations:
     kubernetes-learning.io/developer-login: "andrey.stryukov"
     kubernetes-learning.io/exercise: "02"

@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: microservice-manifests
+  labels:
+    name: microservice-manifests
+    app.kubernetes.io/part-of: microservice-app
+    app.kubernetes.io/managed-by: kubectl
+    kubernetes-learning.io/exercise: "03"
+  annotations:
+    kubernetes.io/description: "Namespace for microservice application manifests"
+    kubernetes-learning.io/developer-login: "andrey.stryukov"
+    kubernetes-learning.io/exercise: "03"

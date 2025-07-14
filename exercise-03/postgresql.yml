@@ -1,0 +1,130 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: db-svc
+  namespace: microservice-manifests
+  labels:
+    app: postgres
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/instance: exercise-03
+    app.kubernetes.io/component: database
+    app.kubernetes.io/part-of: microservice-app
+    app.kubernetes.io/managed-by: kubectl
+  annotations:
+    kubernetes.io/description: "Headless service for PostgreSQL StatefulSet"
+    kubernetes-learning.io/developer-login: "andrey.stryukov"
+    kubernetes-learning.io/exercise: "03"
+spec:
+  selector:
+    app: postgres
+  type: ClusterIP
+  ports:
+    - name: postgres
+      protocol: TCP
+      port: 5432
+      targetPort: 5432
+  clusterIP: None
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-password
+  namespace: microservice-manifests
+type: Opaque
+data:
+  postgres_password: ZGJwYXNzd29yZA==
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: db
+  namespace: microservice-manifests
+  labels:
+    app: postgres
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/instance: exercise-03
+    app.kubernetes.io/version: "16-alpine"
+    app.kubernetes.io/component: database
+    app.kubernetes.io/part-of: microservice-app
+    app.kubernetes.io/managed-by: kubectl
+  annotations:
+    kubernetes.io/description: "PostgreSQL database for microservice application"
+    kubernetes.io/change-cause: "Initial deployment"
+    kubernetes-learning.io/developer-login: "andrey.stryukov"
+    kubernetes-learning.io/exercise: "03"
+spec:
+  selector:
+    matchLabels:
+      app: postgres
+  serviceName: "db-svc"
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: postgres
+        app.kubernetes.io/name: postgres
+        app.kubernetes.io/instance: exercise-03
+        app.kubernetes.io/version: "16-alpine"
+        app.kubernetes.io/component: database
+        app.kubernetes.io/part-of: microservice-app
+      annotations:
+        kubernetes-learning.io/developer-login: "andrey.stryukov"
+        kubernetes-learning.io/exercise: "03"
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: postgresql
+          image: postgres:16-alpine
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+              ephemeral-storage: 100Mi
+            limits:
+              cpu: 100m
+              memory: 512Mi
+              ephemeral-storage: 100Mi
+          livenessProbe:
+            tcpSocket:
+              port: 5432
+            initialDelaySeconds: 5
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "app"]
+            initialDelaySeconds: 5
+            timeoutSeconds: 2
+            successThreshold: 1
+            failureThreshold: 3
+            periodSeconds: 10
+          ports:
+            - containerPort: 5432
+              name: postgres
+              protocol: TCP
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: password
+              mountPath: /run/secrets/
+              readOnly: true
+          env:
+            - name: POSTGRES_PASSWORD_FILE
+              value: /run/secrets/postgres_password
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+            - name: POSTGRES_USER
+              value: app
+            - name: POSTGRES_DB
+              value: app
+      automountServiceAccountToken: false
+      restartPolicy: Always
+      volumes:
+        - name: data
+          emptyDir: {}
+        - name: password
+          secret:
+            secretName: postgres-password

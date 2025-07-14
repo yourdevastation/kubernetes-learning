@@ -1,0 +1,107 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-svc
+  namespace: microservice-manifests
+  labels:
+    app: frontend
+    app.kubernetes.io/name: frontend
+    app.kubernetes.io/instance: exercise-03
+    app.kubernetes.io/part-of: microservice-app
+    app.kubernetes.io/managed-by: kubectl
+  annotations:
+    kubernetes.io/description: "Frontend service for microservice application"
+    kubernetes-learning.io/developer-login: "andrey.stryukov"
+    kubernetes-learning.io/exercise: "03"
+spec:
+  selector:
+    app: frontend
+  type: ClusterIP
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-deploy
+  namespace: microservice-manifests
+  labels:
+    app: frontend-deploy
+    app.kubernetes.io/name: frontend
+    app.kubernetes.io/instance: exercise-03
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: microservice-app
+    app.kubernetes.io/managed-by: kubectl
+  annotations:
+    kubernetes.io/description: "Frontend web UI for microservice application"
+    kubernetes.io/change-cause: "Initial deployment"
+    kubernetes-learning.io/developer-login: "andrey.stryukov"
+    kubernetes-learning.io/exercise: "03"
+spec:
+  selector:
+    matchLabels:
+      app: frontend
+  replicas: 3
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: frontend
+        app.kubernetes.io/name: frontend
+        app.kubernetes.io/instance: exercise-03
+        app.kubernetes.io/version: "1.0.0"
+        app.kubernetes.io/component: frontend
+        app.kubernetes.io/part-of: microservice-app
+        app.kubernetes.io/managed-by: kubectl
+      annotations:
+        kubernetes-learning.io/developer-login: "andrey.stryukov"
+        kubernetes-learning.io/exercise: "03"
+    spec:
+      containers:
+        - name: frontend
+          image: andreystryukov/k8s_private_registry:frontend-1.0.0
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+              ephemeral-storage: 100Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+              ephemeral-storage: 200Mi
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            timeoutSeconds: 2
+            successThreshold: 1
+            failureThreshold: 3
+            periodSeconds: 10
+          ports:
+            - containerPort: 80
+              name: http
+              protocol: TCP
+      imagePullSecrets:
+        - name: regcred
+      terminationGracePeriodSeconds: 30
+      automountServiceAccountToken: false
+      restartPolicy: Always
