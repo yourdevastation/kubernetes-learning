@@ -1,2 +1,3 @@
 .htpasswd
 exercise-03/kind-cluster.yml
+exercise-03/ingress-nginx.yml

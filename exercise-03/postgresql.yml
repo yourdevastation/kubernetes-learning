@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: db-svc
+  name: postgres-svc
   namespace: microservice-manifests
   labels:
     app: postgres
@@ -19,10 +19,10 @@ spec:
     app: postgres
   type: ClusterIP
   ports:
-    - name: postgres
+    - name: postgres-svc
       protocol: TCP
       port: 5432
-      targetPort: 5432
+      targetPort: postgres
   clusterIP: None
 ---
 apiVersion: v1
@@ -37,7 +37,7 @@ data:
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: db
+  name: postgres
   namespace: microservice-manifests
   labels:
     app: postgres
@@ -56,8 +56,8 @@ spec:
   selector:
     matchLabels:
       app: postgres
-  serviceName: "db-svc"
-  replicas: 3
+  serviceName: "postgres-svc"
+  replicas: 1
   template:
     metadata:
       labels:
@@ -124,7 +124,8 @@ spec:
       restartPolicy: Always
       volumes:
         - name: data
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: postgres-pvc
         - name: password
           secret:
             secretName: postgres-password

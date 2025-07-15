@@ -18,10 +18,10 @@ spec:
     app: backend
   type: ClusterIP
   ports:
-    - name: http
+    - name: backend-svc
       protocol: TCP
       port: 8081
-      targetPort: 8081
+      targetPort: api
 ---
 apiVersion: v1
 kind: Secret
@@ -82,7 +82,7 @@ spec:
             [
               "sh",
               "-c",
-              "until pg_isready -h db-0.db-svc -U app; do echo waiting for db; sleep 2; done;",
+              "until pg_isready -h postgres-0.postgres-svc -U app; do echo waiting for db; sleep 2; done;",
             ]
       containers:
         - name: backend
@@ -121,7 +121,7 @@ spec:
             - name: POSTGRES_DB
               value: app
             - name: POSTGRES_SERVER_HOST
-              value: db-0.db-svc
+              value: postgres-0.postgres-svc
             - name: CLIENT_URL
               value: http://frontend-svc
             - name: SERVER_PORT
@@ -130,11 +130,13 @@ spec:
               value: "true"
           ports:
             - containerPort: 8081
-              name: http
+              name: api
               protocol: TCP
           volumeMounts:
             - name: creds
               mountPath: /run/secrets/
+            - name: data
+              mountPath: /var/lib/backend/data
           securityContext:
             allowPrivilegeEscalation: false
       volumes:
@@ -146,6 +148,9 @@ spec:
                 path: postgres_password
               - key: jwt_key
                 path: jwt_key
+        - name: data
+          persistentVolumeClaim:
+            claimName: backend-pvc
       imagePullSecrets:
         - name: regcred
       terminationGracePeriodSeconds: 30
