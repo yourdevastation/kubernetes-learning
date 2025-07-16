@@ -1,0 +1,59 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migration
+  namespace: microservice-manifests
+  labels:
+    app: migration
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 30
+  template:
+    metadata:
+      name: migration
+      namespace: microservice-manifests
+      labels:
+        app: migration
+    spec:
+      containers:
+      - name: migration
+        image: andreystryukov/k8s_private_registry:backend-1.0.0
+        env:
+          - name: POSTGRES_USER
+            value: app
+          - name: POSTGRES_DB
+            value: app
+          - name: POSTGRES_SERVER_HOST
+            value: postgres-0.postgres-svc
+          - name: CLIENT_URL
+            value: http://frontend-svc
+          - name: SERVER_PORT
+            value: ":8081"
+          - name: RUN_MIGRATION
+            value: "true"
+        volumeMounts:
+          - name: creds
+            mountPath: /run/secrets/
+      volumes:
+        - name: creds
+          secret:
+            secretName: backend-secrets
+            items:
+              - key: postgres_password
+                path: postgres_password
+              - key: jwt_key
+                path: jwt_key
+      imagePullSecrets:
+        - name: regcred
+      automountServiceAccountToken: false
+      restartPolicy: Never
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: backend-secrets
+  namespace: microservice-manifests
+type: Opaque
+data:
+  postgres_password: ZGJwYXNzd29yZA==
+  jwt_key: c2VjcmV0and0a2V5

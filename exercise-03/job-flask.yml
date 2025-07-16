@@ -1,0 +1,71 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: flask-migration-config
+  namespace: microservice-manifests
+data:
+  models.py: |
+    from app import db
+    from sqlalchemy import text
+    from sqlalchemy.dialects.postgresql import TEXT, TIMESTAMP, INTEGER
+    
+    class User(db.Model):
+        __tablename__ = 'users'
+        
+        id = db.Column(INTEGER, primary_key=True, autoincrement=True)
+        
+        name = db.Column(TEXT, nullable=False)
+        password = db.Column(TEXT, nullable=False)
+        email = db.Column(TEXT, unique=True, nullable=False)
+        
+        created_on = db.Column(TIMESTAMP, 
+                              nullable=False, 
+                              server_default=text('current_timestamp'))
+        updated_at = db.Column(TIMESTAMP, 
+                              nullable=False, 
+                              server_default=text('current_timestamp'))
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: flask-migration
+  namespace: microservice-manifests
+  labels:
+    app: migration
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app: migration
+    spec:
+      containers:
+      - name: flask-migration
+        image: andreystryukov/utilities:flask-migrate-1.0.0
+        imagePullPolicy: Always
+        env:
+          - name: POSTGRES_USER
+            value: app
+          - name: POSTGRES_DB
+            value: app
+          - name: POSTGRES_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: backend-secrets
+                key: postgres_password
+          - name: DATABASE_URL
+            value: postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgres-0.postgres-svc/$(POSTGRES_DB)
+        volumeMounts:
+          - name: migrations-config
+            mountPath: /migrations
+          - name: migrations-storage
+            mountPath: /app/migrations
+      volumes:
+        - name: migrations-config
+          configMap:
+            name: flask-migration-config
+        - name: migrations-storage
+          persistentVolumeClaim:
+            claimName: flask-migrations-pvc
+      automountServiceAccountToken: false
+      restartPolicy: Never
