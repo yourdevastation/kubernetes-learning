@@ -45,7 +45,7 @@ spec:
   selector:
     matchLabels:
       app: frontend
-  replicas: 3
+  replicas: 1
   strategy:
     rollingUpdate:
       maxSurge: 1
@@ -65,6 +65,16 @@ spec:
         kubernetes-learning.io/developer-login: "andrey.stryukov"
         kubernetes-learning.io/exercise: "03"
     spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app
+                    operator: In
+                    values:
+                      - frontend
+              topologyKey: "kubernetes.io/hostname"
       containers:
         - name: frontend
           image: andreystryukov/k8s_private_registry:frontend-1.0.0
@@ -79,23 +89,30 @@ spec:
               memory: 256Mi
               ephemeral-storage: 200Mi
           livenessProbe:
-            httpGet:
-              path: /
+            tcpSocket:
               port: 80
-            initialDelaySeconds: 5
+            initialDelaySeconds: 1
             timeoutSeconds: 5
             successThreshold: 1
-            failureThreshold: 3
+            failureThreshold: 12
             periodSeconds: 10
           readinessProbe:
             httpGet:
               path: /
               port: 80
-            initialDelaySeconds: 5
-            timeoutSeconds: 2
+            initialDelaySeconds: 1
+            timeoutSeconds: 5
             successThreshold: 1
-            failureThreshold: 3
+            failureThreshold: 12
             periodSeconds: 10
+          startupProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 1
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 30
           ports:
             - containerPort: 80
               name: frontend

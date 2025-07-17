@@ -91,30 +91,36 @@ spec:
           resources:
             requests:
               cpu: 100m
-              memory: 128Mi
+              memory: 256Mi
               ephemeral-storage: 100Mi
             limits:
               cpu: 100m
               memory: 256Mi
               ephemeral-storage: 100Mi
           livenessProbe:
-            httpGet:
-              path: /api/ping
+            tcpSocket:
               port: 8081
-            initialDelaySeconds: 5
+            initialDelaySeconds: 1
             timeoutSeconds: 5
             successThreshold: 1
-            failureThreshold: 3
+            failureThreshold: 12
             periodSeconds: 10
           readinessProbe:
             httpGet:
               path: /api/ping
               port: 8081
-            initialDelaySeconds: 5
-            timeoutSeconds: 2
+            initialDelaySeconds: 1
+            timeoutSeconds: 5
             successThreshold: 1
-            failureThreshold: 3
+            failureThreshold: 12
             periodSeconds: 10
+          startupProbe:
+            httpGet:
+              path: /api/ping
+              port: 8081
+            initialDelaySeconds: 1
+            timeoutSeconds: 5
+            failureThreshold: 12
           env:
             - name: POSTGRES_USER
               value: app
