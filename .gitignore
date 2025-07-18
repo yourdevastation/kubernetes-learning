@@ -2,3 +2,4 @@
 exercise-03/ingress-nginx.yml
 exercise-03/calico.yaml
 flask/
+exercise-04/kubeconfig
