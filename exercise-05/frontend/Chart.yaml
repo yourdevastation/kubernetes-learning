@@ -1,0 +1,20 @@
+apiVersion: v2
+name: frontend
+version: 0.1.0
+description: Frontend chart for the application
+type: application
+keywords:
+  - frontend
+  - web
+  - nginx
+  - nodejs
+home: https://github.com/yourdevastation/kubernetes-learning/tree/main/exercise-05/frontend
+sources:
+  - https://gitlab.com/exercise-03/frontend
+maintainers:
+  - name: yourdevastation
+    email: aserda.andrey-strukov-2003@yandex.ru
+appVersion: "1.0.0"
+annotations:
+  tech.stack/framework: "Node.js"
+  tech.stack/webserver: "Nginx"

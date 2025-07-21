@@ -1,0 +1,25 @@
+apiVersion: v2
+name: backend
+description: Backend chart for the application
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - backend
+  - golang
+home: https://github.com/yourdevastation/kubernetes-learning/tree/main/exercise-05/backend
+sources:
+  - https://gitlab.com/exercise-03/backend
+dependencies:
+  - name: "postgresql"
+    version: "16.7.20"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: postgresql.enabled
+    tags:
+      - database
+maintainers:
+  - name: yourdevastation
+    email: aserda.andrey-strukov-2003@yandex.ru
+annotations:
+  tech.stack/web: "golang"
+  tech.stack/db: "postgresql"

@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "backend.name" . }}-flask-migration-pvc
+  namespace: {{ .Release.Namespace }}
+  labels: {{ include "backend.commonLabels" . | nindent 4 }}
+  {{- $annotations := merge (.Values.commonAnnotations | default dict) (.Values.migration.pvc.annotations | default dict) }}
+  annotations: {{ toYaml $annotations | nindent 4 }}
+spec:
+  accessModes:
+    - {{ .Values.migration.pvc.accessMode | default "ReadWriteOnce" }}
+  resources:
+    requests:
+      storage: {{ .Values.migration.pvc.size | default "1Gi" }}
+  {{- if .Values.migration.pvc.storageClass }}
+  storageClassName: {{ .Values.migration.pvc.storageClass }}
+  {{- end -}}

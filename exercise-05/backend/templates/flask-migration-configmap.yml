@@ -1,0 +1,13 @@
+{{- if .Values.migration.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "backend.name" . }}-flask-migration-config
+  namespace: {{ .Release.Namespace }}
+  labels: {{ include "backend.commonLabels" . | nindent 4 }}
+  {{- $annotations := merge (.Values.commonAnnotations | default dict) (.Values.migrationConfig.annotations | default dict) }}
+  annotations: {{ toYaml $annotations | nindent 4 }}
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation
+data: {{- toYaml .Values.migrationConfig.data | nindent 2 }}
+{{- end -}}

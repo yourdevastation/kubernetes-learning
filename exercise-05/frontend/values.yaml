@@ -1,0 +1,159 @@
+commonLabels: {}
+commonAnnotations:
+  kubernetes-learning.io/developer-login: "andrey.stryukov"
+  kubernetes-learning.io/exercise: "05"
+
+nameOverride: ""
+parentApp: "microservice-app"
+
+image:
+  repository: andreystryukov/k8s_private_registry
+  tag: frontend-1.0.0
+  pullPolicy: IfNotPresent
+  pullSecrets:
+    - name: regcred
+
+appEnv: {}
+
+containerPorts:
+  http: 80
+  https: 443
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+    ephemeral-storage: 100Mi
+  limits:
+    cpu: 200m
+    memory: 256Mi
+    ephemeral-storage: 200Mi
+
+replicaCount: 1
+revisionHistoryLimit: 10
+automountServiceAccountToken: false
+terminationGracePeriodSeconds: 30
+restartPolicy: Always
+
+deployment:
+  annotations:
+    kubernetes.io/description: "Frontend web UI for microservice application"
+  podAnnotations: {}
+
+
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 1
+    maxUnavailable: 1
+
+affinity:
+  enabled: true
+  podAntiAffinity:
+    type: "required"
+    topologyKey: "kubernetes.io/hostname"
+    labelSelector:
+      matchExpressions:
+        - key: app
+          operator: In
+          values:
+            - frontend
+    weight: 100
+    extraTerms: []
+
+livenessProbe:
+  tcpSocket:
+    port: 80
+  initialDelaySeconds: 1
+  timeoutSeconds: 5
+  successThreshold: 1
+  failureThreshold: 12
+  periodSeconds: 10
+readinessProbe:
+  httpGet:
+    path: /
+    port: 80
+  initialDelaySeconds: 1
+  timeoutSeconds: 5
+  successThreshold: 1
+  failureThreshold: 12
+  periodSeconds: 10
+startupProbe:
+  httpGet:
+    path: /
+    port: 80
+  initialDelaySeconds: 1
+  timeoutSeconds: 5
+  successThreshold: 1
+  failureThreshold: 30
+
+autoscaling:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPU: 50
+  targetMemory: ""
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 10
+    scaleDown:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Percent
+          value: 50
+          periodSeconds: 60
+        - type: Pods
+          value: 2
+          periodSeconds: 20
+      selectPolicy: Min
+
+service:
+  type: ClusterIP
+  protocol: TCP
+  ports:
+    http: 80
+  targetPort:
+    http: 80
+
+ingress:
+  enabled: true
+  ingressClassName: nginx
+  hostname: myapp.localhost
+  path: /
+  pathType: Prefix
+  backend:
+  extraPaths:
+    - path: /api
+      pathType: Prefix
+      backend:
+        service:
+          name: backend-svc
+          port:
+            number: 8081
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "30"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-buffer-size: "8k"
+
+networkPolicy:
+  enabled: true
+  allowExternalEgress: false
+  allowExternalIngress: false
+  extraEgress: []
+  extraIngress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 80

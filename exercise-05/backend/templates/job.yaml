@@ -1,0 +1,53 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "backend.name" . }}-migration
+  namespace: {{ .Release.Namespace }}
+  labels: {{ include "backend.commonLabels" . | nindent 4 }}
+  {{- $annotations := merge (.Values.commonAnnotations | default dict) (.Values.job.annotations | default dict) }}
+  annotations: {{ toYaml $annotations | nindent 4 }}
+    # helm.sh/hook: post-install,post-upgrade
+    # helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: {{ .Values.job.backoffLimit | default 0 }}
+  activeDeadlineSeconds: {{ .Values.job.activeDeadlineSeconds | default 30 }}
+  template:
+    metadata:
+      name: {{ include "backend.name" . }}-migration
+      namespace: {{ .Release.Namespace }}
+      labels: {{ include "backend.commonLabels" . | nindent 8 }}
+      {{- if or .Values.commonAnnotations .Values.job.podAnnotations }}
+      {{- $annotations := merge (.Values.commonAnnotations | default dict) (.Values.job.podAnnotations | default dict) }}
+      annotations: {{ toYaml $annotations | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- if .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- range .Values.image.pullSecrets }}
+        - name: {{ .name }}
+        {{- end }}
+      {{- end }}
+      automountServiceAccountToken: {{ .Values.job.automountServiceAccountToken | default false }}
+      restartPolicy: {{ .Values.job.restartPolicy | default "Never" }}
+      initContainers: {{- include "backend.job.initContainers" . | nindent 6 }}
+      containers:
+      - name: {{ include "backend.name" . }}-migration
+        image: {{ include "backend.image" . }}
+        imagePullPolicy: {{ .Values.image.pullPolicy | default "IfNotPresent" }}
+        env: {{- include "backend.env" (dict "Values" .Values "EnvOverrides" (dict "RUN_MIGRATION" "true")) | indent 8 }}
+        - name: POSTGRES_SERVER_HOST
+          value: "{{ .Release.Name }}-postgresql-0.{{ .Release.Name }}-postgresql-hl"
+        - name: CLIENT_URL
+          value: "http://frontend-svc"
+        volumeMounts:
+          - name: creds
+            mountPath: /run/secrets/
+      volumes:
+        - name: creds
+          secret:
+            secretName: {{ include "backend.name" . }}-secrets
+            items:
+              {{- range $key, $value := .Values.secrets.data }}
+              - key: {{ $key }}
+                path: {{ $key }}
+              {{- end }}

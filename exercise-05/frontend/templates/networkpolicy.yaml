@@ -1,0 +1,38 @@
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-to-{{ include "frontend.name" . }}-networkpolicy
+  namespace: {{ .Release.Namespace }}
+  labels: {{ include "frontend.commonLabels" . | nindent 4 }}
+  {{- if or .Values.networkPolicy.annotations .Values.commonAnnotations }}
+  {{- $annotations := merge (.Values.networkPolicy.annotations | default dict) (.Values.commonAnnotations | default dict) }}
+  annotations: {{ toYaml $annotations | nindent 4 }}
+  {{- end }}
+spec:
+  podSelector:
+    matchLabels:
+        app.kubernetes.io/name: {{ include "frontend.name" . }}
+  policyTypes:
+    - Ingress
+    - Egress
+  egress:
+  {{- if .Values.networkPolicy.allowExternalEgress }}
+    - {}
+  {{- else }}
+    - ports:
+      - protocol: TCP
+        port: 53
+      - protocol: UDP
+        port: 53
+  {{- if .Values.networkPolicy.extraEgress }}
+{{- toYaml .Values.networkPolicy.extraEgress | nindent 4 }}
+  {{- end }}
+  {{- end }}
+  ingress:
+  {{- if .Values.networkPolicy.allowExternalIngress }}
+    - {}
+  {{- else if .Values.networkPolicy.extraIngress }}
+{{- toYaml .Values.networkPolicy.extraIngress | nindent 4 }}
+  {{- end }}
+{{- end }}

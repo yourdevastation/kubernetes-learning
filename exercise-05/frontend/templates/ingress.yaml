@@ -1,0 +1,61 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "frontend.fullname" . }}-ingress
+  namespace: {{ .Release.Namespace }}
+  labels: {{ include "frontend.commonLabels" . | nindent 4 }}
+  {{- if or .Values.ingress.annotations .Values.commonAnnotations }}
+  {{- $annotations := merge (.Values.ingress.annotations | default dict) (.Values.commonAnnotations | default dict) }}
+  annotations: {{ toYaml $annotations | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.ingress.ingressClassName }}
+  ingressClassName: {{ .Values.ingress.ingressClassName }}
+  {{- end }}
+  rules:
+    {{- if .Values.ingress.hostname }}
+    - host: {{ .Values.ingress.hostname }}
+      http:
+        paths:
+          {{- if .Values.ingress.extraPaths }}
+          {{- range .Values.ingress.extraPaths }}
+          - path: {{ .path }}
+            pathType: {{ .pathType }}
+            backend:
+              service:
+                name: {{ .backend.service.name }}
+                port:
+                  number: {{ .backend.service.port.number }}
+          {{- end }}
+          {{- end }}
+          - path: {{ .Values.ingress.path }}
+            pathType: {{ .Values.ingress.pathType }}
+            backend:
+              service:
+                name: {{ include "frontend.fullname" . }}-svc 
+                port:
+                  number: {{ .Values.service.ports.http }}
+    {{- else if .Values.ingress.path }}
+    - http:
+        paths:
+          {{- if .Values.ingress.extraPaths }}
+          {{- range .Values.ingress.extraPaths }}
+          - path: {{ .path }}
+            pathType: {{ .pathType }}
+            backend:
+              service:
+                name: {{ .backend.service.name }}
+                port:
+                  number: {{ .backend.service.port.number }}
+          {{- end }}
+          {{- end }}
+          - path: {{ .Values.ingress.path }}
+            pathType: {{ .Values.ingress.pathType }}
+            backend:
+              service:
+                name: {{ include "frontend.fullname" . }}-svc
+                port:
+                  number: {{ .Values.service.ports.http }}
+    {{- end }}
+{{- end -}}

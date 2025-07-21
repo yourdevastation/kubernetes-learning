@@ -1,0 +1,52 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "backend.name" . }}-flask-migration
+  namespace: {{ .Release.Namespace }}
+  labels: {{ include "backend.commonLabels" . | nindent 4 }}
+  {{- $annotations := merge (.Values.commonAnnotations | default dict) (.Values.job.annotations | default dict) }}
+  annotations: {{ toYaml $annotations | nindent 4 }}
+spec:
+  backoffLimit: {{ .Values.job.backoffLimit | default 0 }}
+  activeDeadlineSeconds: {{ .Values.job.activeDeadlineSeconds | default 30 }}
+  template:
+    metadata:
+      name: {{ include "backend.name" . }}-flask-migration
+      namespace: {{ .Release.Namespace }}
+      labels: {{ include "backend.commonLabels" . | nindent 8 }}
+      {{- if or .Values.commonAnnotations .Values.job.podAnnotations }}
+      {{- $annotations := merge (.Values.commonAnnotations | default dict) (.Values.job.podAnnotations | default dict) }}
+      annotations: {{ toYaml $annotations | nindent 8 }}
+      {{- end }}
+    spec:
+      automountServiceAccountToken: {{ .Values.job.automountServiceAccountToken | default false }}
+      restartPolicy: {{ .Values.job.restartPolicy | default "Never" }}
+      initContainers: {{- include "backend.job.initContainers" . | nindent 6 }}
+      containers:
+      - name: {{ include "backend.name" . }}-flask-migration
+        image: andreystryukov/utilities:flask-migrate-1.0.0
+        imagePullPolicy: Always
+        env:
+          - name: POSTGRES_USER
+            value: {{ .Values.appEnv.POSTGRES_USER }}
+          - name: POSTGRES_DB
+            value: {{ .Values.appEnv.POSTGRES_DB }}
+          - name: POSTGRES_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: {{ include "backend.name" . }}-secrets
+                key: postgres_password
+          - name: DATABASE_URL
+            value: postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@{{ .Release.Name }}-postgresql-0.{{ .Release.Name }}-postgresql-hl/$(POSTGRES_DB)
+        volumeMounts:
+          - name: migrations-config
+            mountPath: /migrations
+          - name: migrations-storage
+            mountPath: /app/migrations
+      volumes:
+        - name: migrations-config
+          configMap:
+            name: {{ include "backend.name" . }}-flask-migration-config
+        - name: migrations-storage
+          persistentVolumeClaim:
+            claimName: {{ include "backend.name" . }}-flask-migration-pvc

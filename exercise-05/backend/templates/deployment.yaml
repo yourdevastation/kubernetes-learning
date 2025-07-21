@@ -1,0 +1,94 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "backend.fullname" . }}-deploy
+  namespace: {{ .Release.Namespace }}
+  labels: {{ include "backend.commonLabels" . | nindent 4 }}
+  {{- if or .Values.commonAnnotations .Values.deployment.annotations }}
+  {{- $annotations := merge (.Values.commonAnnotations | default dict) (.Values.deployment.annotations | default dict) }}
+  annotations: {{ toYaml $annotations | nindent 4 }}
+  {{- end }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "backend.name" . }}
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit | default 10 }}
+  {{- if .Values.updateStrategy }}
+  strategy: {{- toYaml .Values.updateStrategy | nindent 4 -}}
+  {{- end }}
+  template:
+    metadata:
+      labels: {{ include "backend.commonLabels" . | nindent 8 }}
+      {{- if or .Values.commonAnnotations .Values.deployment.podAnnotations }}
+      {{- $annotations := merge (.Values.commonAnnotations | default dict) (.Values.deployment.podAnnotations | default dict) }}
+      annotations: {{ toYaml $annotations | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- if .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- range .Values.image.pullSecrets }}
+        - name: {{ .name }}
+        {{- end }}
+      {{- end }}
+      {{- if .Values.initContainers.enabled }}
+      initContainers: {{ include "backend.initContainers" . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ include "backend.name" . }}
+          image: {{ include "backend.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy | default "IfNotPresent" }}
+          {{- if .Values.securityContext }}
+          securityContext: {{- toYaml .Values.securityContext | nindent 12 }}
+          {{- end }}
+          env: {{- include "backend.env" . | indent 12 }}
+            - name: POSTGRES_SERVER_HOST
+              value: "{{ .Release.Name }}-postgresql-0.{{ .Release.Name }}-postgresql-hl"
+            - name: CLIENT_URL
+              value: "http://frontend-svc"
+          {{- if .Values.resources }}
+          resources: {{- toYaml .Values.resources | nindent 12 }}
+          {{- end }}
+          {{- if .Values.livenessProbe }}
+          livenessProbe: {{- toYaml .Values.livenessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.readinessProbe }}
+          readinessProbe: {{- toYaml .Values.readinessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.startupProbe }}
+          startupProbe: {{- toYaml .Values.startupProbe | nindent 12 }}
+          {{- end }}
+          ports:
+            {{- range $port, $value := .Values.containerPorts }}
+            - name: {{ $port }}
+              containerPort: {{ $value }}
+              protocol: TCP
+            {{- end }}
+          volumeMounts:
+            - name: creds
+              mountPath: /run/secrets/
+            - name: data
+              mountPath: /var/lib/backend/data
+            {{- if .Values.extraVolumes }}
+            {{- toYaml .Values.extraVolumes | nindent 12 }}
+            {{- end }}
+      volumes:
+        - name: creds
+          secret:
+            secretName: {{ include "backend.name" . }}-secrets
+            items:
+              {{- range $key, $value := .Values.secrets.data }}
+              - key: {{ $key }}
+                path: {{ $key }}
+              {{- end }}
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "backend.name" . }}-pvc
+        {{- if .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds | default 30 }}
+      automountServiceAccountToken: {{ .Values.automountServiceAccountToken | default false }}
+      restartPolicy: {{ .Values.restartPolicy | default "Always" }}

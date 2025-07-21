@@ -1,0 +1,167 @@
+commonLabels: {}
+commonAnnotations:
+  kubernetes-learning.io/developer-login: "andrey.stryukov"
+  kubernetes-learning.io/exercise: "05"
+
+nameOverride: ""
+parentApp: "microservice-app"
+
+image:
+  repository: andreystryukov/k8s_private_registry
+  tag: backend-1.0.0
+  pullPolicy: IfNotPresent
+  pullSecrets:
+    - name: regcred
+
+appEnv:
+  POSTGRES_USER: app
+  POSTGRES_DB: app
+  SERVER_PORT: ":8081"
+  RUN_MIGRATION: "false"
+
+secrets:
+  annotations: {}
+  data:
+    postgres_password: "dbpassword"
+    jwt_key: "secretjwtkey"
+
+postgresql:
+  architecture: standalone
+  auth:
+    username: app
+    password: dbpassword
+    database: app
+  primary:
+    service:
+      type: ClusterIP
+      headless:
+        enabled: true
+      nameOverride: postgres-svc
+    persistence:
+      enabled: true
+      storageClass: "local-path"
+      size: 1Gi
+
+job:
+  annotations:
+    kubernetes.io/description: "Backend database migration job for microservice application"
+  podAnnotations: {}
+  backoffLimit: 0
+  activeDeadlineSeconds: 60
+  automountServiceAccountToken: false
+  restartPolicy: Never
+
+containerPorts:
+  http: 8081
+
+initContainers:
+  enabled: true
+
+deployment:
+  annotations:
+    kubernetes.io/description: "Backend web UI for microservice application"
+  podAnnotations: {}
+
+replicaCount: 3
+revisionHistoryLimit: 10
+automountServiceAccountToken: false
+terminationGracePeriodSeconds: 30
+restartPolicy: Always
+
+autoscaling:
+  enabled: false
+
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 1
+    maxUnavailable: 1
+
+securityContext:
+  allowPrivilegeEscalation: false
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+    ephemeral-storage: 100Mi
+  limits:
+    cpu: 100m
+    memory: 256Mi
+    ephemeral-storage: 100Mi
+
+persistentVolume:
+  className: local-path
+  size: 500Mi
+  accessModes:
+    - ReadWriteOnce
+
+extraVolumes: []
+
+extraVolumeMounts: []
+
+migration:
+  enabled: true
+  pvc:
+    annotations: {}
+    storageClassName: local-path
+    accessModes:
+      - ReadWriteOnce
+    size: 100Mi
+
+migrationConfig:
+  data:
+    models.py: |
+      from app import db
+      from sqlalchemy import text
+      from sqlalchemy.dialects.postgresql import TEXT, TIMESTAMP, INTEGER
+      
+      class User(db.Model):
+          __tablename__ = 'users'
+          
+          id = db.Column(INTEGER, primary_key=True, autoincrement=True)
+          
+          name = db.Column(TEXT, nullable=False)
+          password = db.Column(TEXT, nullable=False)
+          email = db.Column(TEXT, unique=True, nullable=False)
+          
+          created_on = db.Column(TIMESTAMP, 
+                                nullable=False, 
+                                server_default=text('current_timestamp'))
+          updated_at = db.Column(TIMESTAMP, 
+                                nullable=False, 
+                                server_default=text('current_timestamp'))
+  
+
+livenessProbe:
+  tcpSocket:
+    port: 8081
+  initialDelaySeconds: 1
+  timeoutSeconds: 5
+  successThreshold: 1
+  failureThreshold: 12
+  periodSeconds: 10
+readinessProbe:
+  httpGet:
+    path: /api/ping
+    port: 8081
+  initialDelaySeconds: 1
+  timeoutSeconds: 5
+  successThreshold: 1
+  failureThreshold: 12
+  periodSeconds: 10
+startupProbe:
+  httpGet:
+    path: /api/ping
+    port: 8081
+  initialDelaySeconds: 1
+  timeoutSeconds: 5
+  failureThreshold: 12
+
+service:
+  type: ClusterIP
+  protocol: TCP
+  ports:
+    http: 8081
+  targetPort:
+    http: 8081

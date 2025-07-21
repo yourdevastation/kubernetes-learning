@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "frontend.fullname" . }}-deploy
+  namespace: {{ .Release.Namespace }}
+  labels: {{ include "frontend.commonLabels" . | nindent 4 }}
+  {{- if or .Values.commonAnnotations .Values.deployment.annotations }}
+  {{- $annotations := merge (.Values.commonAnnotations | default dict) (.Values.deployment.annotations | default dict) }}
+  annotations: {{ toYaml $annotations | nindent 4 }}
+  {{- end }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "frontend.name" . }}
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit | default 10 }}
+  {{- if .Values.updateStrategy }}
+  strategy: {{- toYaml .Values.updateStrategy | nindent 4 -}}
+  {{- end }}
+  template:
+    metadata:
+      labels: {{ include "frontend.commonLabels" . | nindent 8 }}
+      {{- if or .Values.commonAnnotations .Values.deployment.podAnnotations }}
+      {{- $annotations := merge (.Values.commonAnnotations | default dict) (.Values.deployment.podAnnotations | default dict) }}
+      annotations: {{ toYaml $annotations | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- if .Values.affinity.enabled }}
+      affinity:
+        {{- if .Values.affinity.podAntiAffinity }}
+        podAntiAffinity:
+          {{- if eq .Values.affinity.podAntiAffinity.type "required" }}
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector: {{ toYaml .Values.affinity.podAntiAffinity.labelSelector | nindent 16 }}
+              topologyKey: {{ .Values.affinity.podAntiAffinity.topologyKey | default "kubernetes.io/hostname" }}
+          {{- else if eq .Values.affinity.podAntiAffinity.type "preferred" }}
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: {{ .Values.affinity.podAntiAffinity.weight | default 100 }}
+              podAffinityTerm:
+                labelSelector: {{ toYaml .Values.affinity.podAntiAffinity.labelSelector | nindent 16 }}
+                topologyKey: {{ .Values.affinity.podAntiAffinity.topologyKey | default "kubernetes.io/hostname" }}
+          {{- range .Values.affinity.podAntiAffinity.extraTerms }}
+          - {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- end }}
+        {{- end }}
+      {{- end }}
+      automountServiceAccountToken: {{ .Values.automountServiceAccountToken | default false }}
+      {{- if .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- range .Values.image.pullSecrets }}
+        - name: {{ .name }}
+      {{- end }}
+      containers:
+        - name: {{ include "frontend.name" . }}
+          image: {{ include "frontend.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy | default "IfNotPresent" }}
+          {{- end }}
+          {{- if .Values.appEnv }}
+          env: {{- include "frontend.env" . | nindent 12 }}
+          {{- end }}
+          {{- if .Values.resources }}
+          resources: {{- toYaml .Values.resources | nindent 12 }}
+          {{- end }}
+          {{- if .Values.livenessProbe }}
+          livenessProbe: {{- toYaml .Values.livenessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.readinessProbe }}
+          readinessProbe: {{- toYaml .Values.readinessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.startupProbe }}
+          startupProbe: {{- toYaml .Values.startupProbe | nindent 12 }}
+          {{- end }}
+          ports:
+            {{- range $portName, $portNumber := .Values.containerPorts }}
+            - name: {{ $portName }}
+              containerPort: {{ $portNumber }}
+              protocol: TCP
+            {{- end }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds | default 30 }}
+      restartPolicy: {{ .Values.restartPolicy | default "Always" }}

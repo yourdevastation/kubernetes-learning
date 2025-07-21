@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "backend.fullname" . }}-svc
+  namespace: {{ .Release.Namespace }}
+  labels: {{ include "backend.commonLabels" . | nindent 4 }}
+  {{- if or .Values.commonAnnotations .Values.service.annotations }}
+  {{- $annotations := merge (.Values.commonAnnotations | default dict) (.Values.service.annotations | default dict) }}
+  annotations: {{ toYaml $annotations | nindent 4 }}
+  {{- end }}
+spec:
+  selector:
+    app.kubernetes.io/name: {{ include "backend.name" . }}
+  {{- if .Values.service.type }}
+  type: {{ .Values.service.type }}
+  {{- end }}
+  ports:
+    - name: http
+      protocol: {{ .Values.service.protocol }}
+      port: {{ .Values.service.ports.http }}
+      targetPort: {{ .Values.service.targetPort.http }}
